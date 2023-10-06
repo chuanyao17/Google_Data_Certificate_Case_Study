@@ -1,0 +1,367 @@
+---
+title: "Google Data Analytics Capstone: A new marketing strategy to convert casual riders into annual members."
+author: "Chuanyao Lin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Deliverables:
+
+1. A clear statement of the business task
+2. A description of all data sources used
+3. Documentation of any cleaning or manipulation of data
+4. A summary of the analysis
+5. Supporting visualizations and key findings
+6. Top three recommendations based on the analysis
+
+## Background
+**Cyclistic:**      A bike-share program that features more than 5,800 bicycles and 600 docking stations. 
+The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day.
+
+Moreno(the director of marketing) believes that maximizing the number of annual members will be key to future growth. Rather than creating a marketing campaign that targets all-new customers, Moreno believes there is a very good chance to convert casual riders into members. She notes that casual riders are already aware of the Cyclistic program and have chosen Cyclistic for their mobility needs.
+
+**Pricing plans:**  Single-ride passes (casual riders), full-day passes (casual riders), and annual memberships.
+
+**Premise:**     Cyclistic’s finance analysts have concluded that annual members are much more profitable than casual riders. 
+
+**Goal:**           Converting casual riders into annual members and better understand how annual members and casual riders differ, why casual riders would buy a membership, and how digital media could affect their marketing tactics.
+
+## Six steps
+
+1. [ASK](#ask)
+2. [PREPARE](#prepare)
+3. [PROCESS](#process)
+4. [ANALYZE](#analyze)
+5. [SHARE](#share)
+5. [ACT](#act)
+
+## <a name="ask"></a>1.ASK
+
+1. How do annual members and casual riders use Cyclistic bikes differently?
+2. Why would casual riders buy Cyclistic annual memberships?
+3. How can Cyclistic use digital media to influence casual riders to become members?
+
+## <a name="prepare"></a>2.PREPARE
+
+**Basic info of the dataset used in this report**
+
+**Source:**       https://divvy-tripdata.s3.amazonaws.com/index.html 
+
+**Time period:**  2019(Q2,Q3,Q4) & 2020(Q1)
+
+### Install required packages
+```{r}
+# tidyverse for data import and wrangling
+# libridate for date functions
+# ggplot for visualization
+library(tidyverse)  #helps wrangle data
+library(lubridate)  #helps wrangle date attributes
+library(ggplot2)  #helps visualize 
+library(magrittr) #helps pipe operations 
+
+getwd() #displays your working directory
+setwd("C:/Users/Yao/Desktop/Google_certificate_case_1/")
+
+
+```
+
+### Read Data
+```{r}
+q2_2019 <- read_csv("Divvy_Trips_2019_Q2.csv")
+q3_2019 <- read_csv("Divvy_Trips_2019_Q3.csv")
+q4_2019 <- read_csv("Divvy_Trips_2019_Q4.csv")
+q1_2020 <- read_csv("Divvy_Trips_2020_Q1.csv")
+
+```
+
+### Quick view of the data contents
+```{r}
+colnames(q3_2019)
+colnames(q4_2019)
+colnames(q2_2019)
+colnames(q1_2020)
+
+```
+
+## <a name="process"></a>3.PROCESS
+
+### Rename columns  to make them consisent with q1_2020
+```{r}
+(q4_2019 <- rename(q4_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid
+                   ,started_at = start_time
+                   ,ended_at = end_time
+                   ,start_station_name = from_station_name
+                   ,start_station_id = from_station_id
+                   ,end_station_name = to_station_name
+                   ,end_station_id = to_station_id
+                   ,member_casual = usertype))
+
+(q3_2019 <- rename(q3_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid
+                   ,started_at = start_time
+                   ,ended_at = end_time
+                   ,start_station_name = from_station_name
+                   ,start_station_id = from_station_id
+                   ,end_station_name = to_station_name
+                   ,end_station_id = to_station_id
+                   ,member_casual = usertype))
+
+(q2_2019 <- rename(q2_2019
+                   ,ride_id = "01 - Rental Details Rental ID"
+                   ,rideable_type = "01 - Rental Details Bike ID"
+                   ,started_at = "01 - Rental Details Local Start Time"
+                   ,ended_at = "01 - Rental Details Local End Time"
+                   ,start_station_name = "03 - Rental Start Station Name"
+                   ,start_station_id = "03 - Rental Start Station ID"
+                   ,end_station_name = "02 - Rental End Station Name"
+                   ,end_station_id = "02 - Rental End Station ID"
+                   ,member_casual = "User Type"))
+
+```
+
+### Inspect the dataframes and look for inconguencies
+```{r}
+str(q1_2020)
+str(q4_2019)
+str(q3_2019)
+str(q2_2019)
+
+```
+
+### Convert ride_id and rideable_type to character so that they can stack correctly
+```{r}
+q4_2019 <-  mutate(q4_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type))
+q3_2019 <-  mutate(q3_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type))
+q2_2019 <-  mutate(q2_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type))
+```
+
+### Stack individual quarter's data frames into one big data frame
+```{r}
+all_trips <- bind_rows(q2_2019, q3_2019, q4_2019, q1_2020)
+```
+
+### Remove lat, long, birthyear, and gender fields as this data was dropped beginning in 2020
+```{r}
+
+all_trips <- all_trips %>%  
+  select(-c(start_lat, start_lng, end_lat, end_lng, birthyear, gender, "01 - Rental Details Duration In Seconds Uncapped", "05 - Member Details Member Birthday Year", "Member Gender", "tripduration"))
+
+```
+
+### Inspect the new table that has been created
+```{r}
+colnames(all_trips)  #List of column names
+nrow(all_trips)  #How many rows are in data frame?
+dim(all_trips)  #Dimensions of the data frame?
+head(all_trips)  #See the first 6 rows of data frame.  Also tail(qs_raw)
+str(all_trips)  #See list of columns and data types (numeric, character, etc)
+summary(all_trips)  #Statistical summary of data. Mainly for numerics
+
+```
+
+### In the "member_casual" column, replace "Subscriber" with "member" and "Customer" with "casual"
+```{r}
+table(all_trips$member_casual) # Begin by seeing how many observations fall under each usertype
+all_trips <-  all_trips %>% 
+  mutate(member_casual = recode(member_casual
+                           ,"Subscriber" = "member"
+                           ,"Customer" = "casual"))
+table(all_trips$member_casual) # Check to make sure the proper number of observations were reassignedrtype
+```
+
+### Add columns that list the date, month, day, and year of each ride
+```{r}
+all_trips$date <- as.Date(all_trips$started_at) #The default format is yyyy-mm-dd
+all_trips$month <- format(as.Date(all_trips$date), "%m")
+all_trips$day <- format(as.Date(all_trips$date), "%d")
+all_trips$year <- format(as.Date(all_trips$date), "%Y")
+all_trips$day_of_week <- format(as.Date(all_trips$date), "%A")
+
+```
+
+### Add a "ride_length" calculation to all_trips (in seconds)
+```{r}
+all_trips$ride_length <- difftime(all_trips$ended_at,all_trips$started_at)
+```
+
+### Convert "ride_length" from Factor to numeric so we can run calculations on the data
+```{r}
+is.factor(all_trips$ride_length)
+all_trips$ride_length <- as.numeric(as.character(all_trips$ride_length))
+is.numeric(all_trips$ride_length)
+
+```
+
+### Check the negative_rides
+```{r}
+negative_rides <- all_trips[all_trips$ride_length < 0, ]
+head(negative_rides)
+```
+
+### Remove negative_rides and the start_station_name == "HQ QR"
+```{r}
+all_trips_v2 <- all_trips[!(all_trips$start_station_name == "HQ QR" | all_trips$ride_length<0),]
+head(all_trips_v2)
+```
+
+## <a name="analyze"></a>4.ANALYZE
+
+### Descriptive analysis on ride_length (all figures in seconds)
+```{r}
+mean(all_trips_v2$ride_length) #straight average (total ride length / rides)
+median(all_trips_v2$ride_length) #midpoint number in the ascending array of ride lengths
+max(all_trips_v2$ride_length) #longest ride
+min(all_trips_v2$ride_length) #shortest ride
+summary(all_trips_v2$ride_length)
+```
+
+### Compare members and casual users
+```{r}
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = median)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = max)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = min)
+
+```
+
+### Sort the days of week
+```{r}
+all_trips_v2$day_of_week <- ordered(all_trips_v2$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+### See the average ride time by each day for members vs casual users
+```{r}
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+```
+
+### Analyze ridership data by type and weekday
+```{r}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  #creates weekday field using wday()
+  group_by(member_casual, weekday) %>%  #groups by usertype and weekday
+  summarise(number_of_rides = n()							#calculates the number of rides and average duration 
+  ,average_duration = mean(ride_length)) %>% 		# calculates the average duration
+  arrange(member_casual, weekday)								# sorts
+
+```
+
+### Analyze the top 5 start station used for members vs casual users
+```{r}
+# Top 5 start stations for both member and casual riders
+top_stations <- all_trips_v2 %>%
+  group_by(member_casual, start_station_name) %>%
+  summarise(count = n()) %>%
+  arrange(member_casual, -count) %>%
+  slice_head(n = 5)
+top_stations
+```
+
+## <a name="share"></a>5. SHARE
+
+### Visualize the number of rides
+```{r}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")
+
+```
+
+### Visualize the average duration
+```{r}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")
+
+```
+
+### Visualize the top 5 stations used for members vs casual users
+```{r}
+ggplot(top_stations, aes(x = reorder(start_station_name, count), y = count, fill = member_casual)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 5 Start Stations for Members and Casual Riders",
+       x = "Start Station",
+       y = "Count") +
+  theme_minimal() +
+  facet_wrap(~ member_casual)
+```
+
+
+## <a name="act"></a>6.ACT
+
+Based on the visuals and analysis presented, we circle back to address the initial three questions:
+
+**1.How do annual members and casual riders use Cyclistic bikes differently?**
+
+- Members ride noticeably more often than casual riders, especially on weekdays. However, the duration of each ride by casual riders significantly exceeds that of members. This might suggest that members, such as those commuting, are more likely to be frequent short-distance riders, whereas casual riders might use the bikes more for longer journeys or leisure activities.
+
+**2.Why would casual riders buy Cyclistic annual memberships?**
+
+- ***Economics:*** As mentioned, the average ride duration for casual riders is much longer than for members. If they use the service this frequently, considering the cost per ride, purchasing an annual membership might be more economical.
+
+- ***Convenience:*** Annual members might enjoy more benefits or privileges such as guaranteed bike availability, priority selection, and priority at specific stations, among others.
+
+- ***Ride Frequency:*** Casual riders, upon finding themselves frequently using Cyclistic bikes, might consider upgrading to a membership for better value and convenience.
+
+- ***Marketing Promotions and Discounts:*** Cyclistic could offer specific promotions or discounts to encourage casual riders to upgrade to membership.
+
+**3.How can Cyclistic use digital media to influence casual riders to become members?**
+
+- Advertise at specific locations (like the top 5 stations most used by casual riders) to encourage them to upgrade to membership.
+
+- Offer limited-time discounts or promotions to incentivize casual riders to upgrade. Concurrently, set up a referral program for existing members to invite their friends and family to join.
+
+- Host regular online or offline cycling events to increase brand affinity and loyalty among casual riders towards Cyclistic.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
